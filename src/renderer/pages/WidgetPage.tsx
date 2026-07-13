@@ -7,6 +7,12 @@ import type { Task, Reminder, DashboardStats } from '../../shared/types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+declare global {
+  interface Window {
+    electronOpenMain?: () => void;
+  }
+}
+
 export function WidgetPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
@@ -41,8 +47,6 @@ export function WidgetPage() {
     await loadData();
   };
 
-  const openMain = () => { api.app.getAutoStart().then(() => {}); (window as any).api?.app && (window as any).electronOpenMain?.(); };
-
   const progress = stats && stats.totalToday > 0
     ? Math.round((stats.completed / stats.totalToday) * 100)
     : 0;
@@ -60,7 +64,7 @@ export function WidgetPage() {
           </span>
         </div>
         <button
-          onClick={() => { (window as any).api?.app && window.api.app.getAutoStart(); ipcOpenMain(); }}
+          onClick={() => window.electronOpenMain?.()}
           className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
@@ -146,12 +150,6 @@ export function WidgetPage() {
       </div>
     </div>
   );
-}
-
-function ipcOpenMain() {
-  try { (window as any).api?.app && window.api.app.getAutoStart(); } catch {}
-  try { (window as any).electronAPI?.openMain?.(); } catch {}
-  window.api?.app && (window as any).__openMain?.();
 }
 
 function MiniStat({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
