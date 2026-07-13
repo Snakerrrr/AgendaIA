@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { AnimatedBackground } from './components/AnimatedBackground';
 import { SearchModal } from './components/SearchModal';
+import { MiniPanel } from './components/MiniPanel';
 import { Dashboard } from './pages/Dashboard';
 import { TasksPage } from './pages/TasksPage';
 import { IdeasPage } from './pages/IdeasPage';
@@ -40,7 +41,8 @@ export function App() {
   const { page, initTheme, bgEffect, accentHue } = useAppStore();
   const [quickAdd, setQuickAdd] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [editFromSearch, setEditFromSearch] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [panelTask, setPanelTask] = useState<Task | null>(null);
 
   useEffect(() => {
     initTheme();
@@ -49,11 +51,10 @@ export function App() {
 
     const handleKeys = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }
-      if (e.key === 'Escape' && showSearch) setShowSearch(false);
     };
     document.addEventListener('keydown', handleKeys);
     return () => document.removeEventListener('keydown', handleKeys);
-  }, [showSearch]);
+  }, []);
 
   const Page = pages[page];
 
@@ -68,9 +69,20 @@ export function App() {
         </div>
       </main>
 
+      <MiniPanel
+        selectedTask={panelTask}
+        onClearSelection={() => setPanelTask(null)}
+        onEditTask={(t) => { setEditingTask(t); setPanelTask(t); }}
+      />
+
       {quickAdd && <TaskForm onClose={() => setQuickAdd(false)} />}
-      {editFromSearch && <TaskForm task={editFromSearch} onClose={() => setEditFromSearch(null)} />}
-      {showSearch && <SearchModal onClose={() => setShowSearch(false)} onEditTask={(t) => { setShowSearch(false); setEditFromSearch(t); }} />}
+      {editingTask && <TaskForm task={editingTask} onClose={() => setEditingTask(null)} />}
+      {showSearch && (
+        <SearchModal
+          onClose={() => setShowSearch(false)}
+          onEditTask={(t) => { setShowSearch(false); setPanelTask(t); setEditingTask(t); }}
+        />
+      )}
     </div>
   );
 }
