@@ -140,6 +140,7 @@ export interface IpcApi {
     setFocus: (id: number, isFocus: boolean) => Promise<void>;
     generateRecurring: () => Promise<void>;
     getRecurringTemplates: () => Promise<Task[]>;
+    toggleRecurring: (id: number, enable: boolean) => Promise<void>;
   };
   subtasks: {
     getByTask: (taskId: number) => Promise<Subtask[]>;

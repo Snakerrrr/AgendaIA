@@ -120,15 +120,34 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
         </div>
 
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {!task.is_recurring && !task.recurring_parent_id && (
+          {!task.recurring_parent_id && (
             <button
               onClick={async () => {
                 playClickSound();
-                await api.tasks.update({ id: task.id, is_recurring: true, recurrence_type: 'daily', recurrence_interval: 1 });
+                const willEnable = !task.is_recurring;
+                await api.tasks.toggleRecurring(task.id, willEnable);
                 await loadTasks();
               }}
-              className="rounded p-1.5 text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400 transition-colors"
-              title="Hacer recurrente (diaria)"
+              className={cn(
+                'rounded p-1.5 transition-colors',
+                task.is_recurring
+                  ? 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20'
+                  : 'text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400'
+              )}
+              title={task.is_recurring ? 'Quitar recurrencia' : 'Hacer recurrente (diaria)'}
+            >
+              <Repeat size={14} />
+            </button>
+          )}
+          {task.recurring_parent_id && (
+            <button
+              onClick={async () => {
+                playClickSound();
+                await api.tasks.toggleRecurring(task.recurring_parent_id!, false);
+                await loadTasks();
+              }}
+              className="rounded p-1.5 text-purple-400/60 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+              title="Dejar de repetir esta tarea"
             >
               <Repeat size={14} />
             </button>

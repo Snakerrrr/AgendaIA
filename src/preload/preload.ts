@@ -14,6 +14,7 @@ const api: IpcApi = {
     setFocus: (id, isFocus) => ipcRenderer.invoke('tasks:setFocus', id, isFocus),
     generateRecurring: () => ipcRenderer.invoke('tasks:generateRecurring'),
     getRecurringTemplates: () => ipcRenderer.invoke('tasks:getRecurringTemplates'),
+    toggleRecurring: (id, enable) => ipcRenderer.invoke('tasks:toggleRecurring', id, enable),
   },
   subtasks: {
     getByTask: (taskId) => ipcRenderer.invoke('subtasks:getByTask', taskId),

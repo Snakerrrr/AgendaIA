@@ -17,17 +17,28 @@ import { es } from 'date-fns/locale';
 
 function isRecurringOnDay(task: Task, day: Date): boolean {
   if (!task.is_recurring || !task.recurrence_type) return false;
+
   const baseDate = task.due_date ? new Date(task.due_date) : new Date(task.created_at);
-  const daysDiff = differenceInCalendarDays(day, baseDate);
+  const baseDateOnly = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  const dayOnly = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  const daysDiff = differenceInCalendarDays(dayOnly, baseDateOnly);
+
   if (daysDiff < 0) return false;
-  if (task.recurrence_end_date && day > new Date(task.recurrence_end_date)) return false;
+  if (task.recurrence_end_date) {
+    const endDate = new Date(task.recurrence_end_date);
+    if (dayOnly > endDate) return false;
+  }
 
   const interval = task.recurrence_interval ?? 1;
   switch (task.recurrence_type) {
-    case 'daily': return interval === 1 || daysDiff % interval === 0;
-    case 'weekly': return day.getDay() === baseDate.getDay();
-    case 'monthly': return day.getDate() === baseDate.getDate();
-    default: return false;
+    case 'daily':
+      return interval === 1 || daysDiff % interval === 0;
+    case 'weekly':
+      return dayOnly.getDay() === baseDateOnly.getDay() && (interval === 1 || Math.floor(daysDiff / 7) % interval === 0);
+    case 'monthly':
+      return dayOnly.getDate() === baseDateOnly.getDate();
+    default:
+      return false;
   }
 }
 

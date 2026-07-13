@@ -134,16 +134,17 @@ function migrate(): void {
   }
   if (!cols.includes('recurring_parent_id')) {
     db.run("ALTER TABLE tasks ADD COLUMN recurring_parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL");
-    // Fix existing duplicated recurring tasks: find duplicate titles and keep only the first as template
-    const dupes = queryAll(`
-      SELECT title, MIN(id) as template_id, COUNT(*) as cnt
-      FROM tasks WHERE is_recurring = 1
-      GROUP BY title HAVING cnt > 1
-    `);
-    for (const d of dupes) {
-      db.run("UPDATE tasks SET is_recurring = 0, recurring_parent_id = ? WHERE title = ? AND id != ? AND is_recurring = 1",
-        [d.template_id, d.title, d.template_id]);
-    }
+  }
+
+  // Always clean up: ensure only one template per title, rest become instances
+  const dupes = queryAll(`
+    SELECT title, MIN(id) as template_id, COUNT(*) as cnt
+    FROM tasks WHERE is_recurring = 1 AND recurring_parent_id IS NULL
+    GROUP BY title HAVING cnt > 1
+  `);
+  for (const d of dupes) {
+    db.run("UPDATE tasks SET is_recurring = 0, recurring_parent_id = ? WHERE title = ? AND id != ? AND is_recurring = 1",
+      [d.template_id, d.title, d.template_id]);
   }
 }
 
@@ -190,7 +191,8 @@ function runSql(sql: string, params: unknown[] = []): number {
 
 export function getAllTasks(filter?: { status?: TaskStatus; priority?: Priority; category_id?: number; urgency?: Urgency }): Task[] {
   let sql = `SELECT t.*, c.name as category_name, c.color as category_color
-    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id WHERE 1=1`;
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
+    WHERE (t.is_recurring = 0 OR t.is_recurring IS NULL)`;
   const params: unknown[] = [];
 
   if (filter?.status) { sql += ' AND t.status = ?'; params.push(filter.status); }
@@ -329,6 +331,15 @@ export function getRecurringTemplates(): Task[] {
     FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
     WHERE t.is_recurring = 1 AND t.recurring_parent_id IS NULL
     ORDER BY t.title ASC`) as unknown as Task[];
+}
+
+export function toggleRecurring(id: number, enable: boolean): void {
+  if (enable) {
+    runSql("UPDATE tasks SET is_recurring = 1, recurrence_type = 'daily', recurrence_interval = 1, recurring_parent_id = NULL WHERE id = ?", [id]);
+  } else {
+    // Disable: mark as normal task, remove from future generation
+    runSql("UPDATE tasks SET is_recurring = 0, recurrence_type = NULL, recurrence_interval = NULL, recurring_parent_id = NULL WHERE id = ?", [id]);
+  }
 }
 
 export function getDashboardStats(): DashboardStats {
