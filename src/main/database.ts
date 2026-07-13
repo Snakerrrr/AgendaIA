@@ -191,8 +191,7 @@ function runSql(sql: string, params: unknown[] = []): number {
 
 export function getAllTasks(filter?: { status?: TaskStatus; priority?: Priority; category_id?: number; urgency?: Urgency }): Task[] {
   let sql = `SELECT t.*, c.name as category_name, c.color as category_color
-    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
-    WHERE (t.is_recurring = 0 OR t.is_recurring IS NULL)`;
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id WHERE 1=1`;
   const params: unknown[] = [];
 
   if (filter?.status) { sql += ' AND t.status = ?'; params.push(filter.status); }
@@ -303,10 +302,10 @@ export function generateRecurringTasks(): void {
 
     if (!shouldCreate) continue;
 
-    // Skip if today's instance already exists (by parent id)
+    // Skip if any task with same title already exists for today (by parent or by name)
     const exists = queryOne(
-      "SELECT id FROM tasks WHERE recurring_parent_id = ? AND date(due_date) = date(?)",
-      [tmpl.id, today]
+      "SELECT id FROM tasks WHERE (recurring_parent_id = ? OR (title = ? AND id != ?)) AND date(due_date) = date(?)",
+      [tmpl.id, tmpl.title, tmpl.id, today]
     );
     if (exists) continue;
 

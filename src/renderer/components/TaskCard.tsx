@@ -105,9 +105,9 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
             )}
 
             {task.is_recurring ? (
-              <Badge variant="outline" className="text-[10px] text-purple-400">Plantilla</Badge>
+              <Badge variant="outline" className="text-[10px] text-purple-400">Recurrente</Badge>
             ) : task.recurring_parent_id ? (
-              <Badge variant="outline" className="text-[10px] text-purple-400/60">Diaria</Badge>
+              <Badge variant="outline" className="text-[10px] text-purple-400/60">Auto-generada</Badge>
             ) : null}
 
             {task.due_date && (
