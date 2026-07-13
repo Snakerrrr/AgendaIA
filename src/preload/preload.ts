@@ -71,3 +71,7 @@ contextBridge.exposeInMainWorld('onQuickAdd', (callback: () => void) => {
 contextBridge.exposeInMainWorld('onOpenSearch', (callback: () => void) => {
   ipcRenderer.on('open-search', () => callback());
 });
+
+contextBridge.exposeInMainWorld('electronOpenMain', () => {
+  ipcRenderer.invoke('app:openMain');
+});
