@@ -14,6 +14,7 @@ interface AppState {
   theme: 'light' | 'dark';
   accentHue: string;
   bgEffect: BgEffect;
+  sidebarCollapsed: boolean;
   tasks: Task[];
   ideas: Idea[];
   categories: Category[];
@@ -25,6 +26,7 @@ interface AppState {
   toggleTheme: () => void;
   setAccentHue: (hue: string) => void;
   setBgEffect: (effect: BgEffect) => void;
+  toggleSidebar: () => void;
   initTheme: () => Promise<void>;
 
   loadTasks: (filter?: { status?: TaskStatus; priority?: Priority; category_id?: number }) => Promise<void>;
@@ -40,6 +42,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: 'dark',
   accentHue: '0',
   bgEffect: 'particles' as BgEffect,
+  sidebarCollapsed: localStorage.getItem('sidebar-collapsed') === 'true',
   tasks: [],
   ideas: [],
   categories: [],
@@ -65,6 +68,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setBgEffect: (effect) => {
     set({ bgEffect: effect });
     localStorage.setItem('bg-effect', effect);
+  },
+
+  toggleSidebar: () => {
+    const next = !get().sidebarCollapsed;
+    set({ sidebarCollapsed: next });
+    localStorage.setItem('sidebar-collapsed', String(next));
   },
 
   initTheme: async () => {

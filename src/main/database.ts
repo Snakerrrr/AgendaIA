@@ -256,35 +256,67 @@ export function setFocus(id: number, isFocus: boolean): void {
 }
 
 export function generateRecurringTasks(): void {
-  const recurring = queryAll(`SELECT * FROM tasks WHERE is_recurring = 1 AND status = 'completed' AND recurrence_type IS NOT NULL`) as unknown as Task[];
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const now = new Date();
+
+  // Find all recurring template tasks (the original ones, or the latest completed one)
+  const recurring = queryAll(`
+    SELECT * FROM tasks WHERE is_recurring = 1 AND recurrence_type IS NOT NULL
+  `) as unknown as Task[];
 
   for (const task of recurring) {
-    if (task.recurrence_end_date && new Date(task.recurrence_end_date) < new Date()) continue;
+    if (task.recurrence_end_date && new Date(task.recurrence_end_date) < now) continue;
 
-    const baseDate = task.due_date ? new Date(task.due_date) : new Date();
-    let nextDate: Date;
+    const interval = task.recurrence_interval ?? 1;
+    const baseDate = task.due_date ? new Date(task.due_date) : new Date(task.created_at);
+
+    // Calculate if today should have this recurring task
+    let shouldCreateToday = false;
+    const daysDiff = Math.floor((now.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
 
     switch (task.recurrence_type) {
-      case 'daily': nextDate = addDays(baseDate, task.recurrence_interval ?? 1); break;
-      case 'weekly': nextDate = addWeeks(baseDate, task.recurrence_interval ?? 1); break;
-      case 'monthly': nextDate = addMonths(baseDate, task.recurrence_interval ?? 1); break;
-      default: continue;
+      case 'daily':
+        shouldCreateToday = daysDiff >= 0 && daysDiff % interval === 0;
+        break;
+      case 'weekly': {
+        const weeksDiff = Math.floor(daysDiff / 7);
+        shouldCreateToday = daysDiff >= 0 && weeksDiff % interval === 0 && now.getDay() === baseDate.getDay();
+        break;
+      }
+      case 'monthly':
+        shouldCreateToday = daysDiff >= 0 && now.getDate() === baseDate.getDate();
+        break;
     }
 
-    const nextDateStr = format(nextDate, "yyyy-MM-dd'T'HH:mm");
-    const exists = queryOne("SELECT id FROM tasks WHERE title = ? AND date(due_date) = date(?)", [task.title, nextDateStr]);
-    if (!exists) {
-      createTask({
-        title: task.title, description: task.description ?? undefined,
-        priority: task.priority, urgency: task.urgency,
-        category_id: task.category_id, due_date: nextDateStr,
-        is_recurring: true, recurrence_type: task.recurrence_type ?? undefined,
-        recurrence_interval: task.recurrence_interval ?? 1,
-        recurrence_end_date: task.recurrence_end_date,
-      });
-    }
+    if (!shouldCreateToday) continue;
 
-    runSql("UPDATE tasks SET is_recurring = 0 WHERE id = ?", [task.id]);
+    // Check if today's instance already exists
+    const exists = queryOne(
+      "SELECT id FROM tasks WHERE title = ? AND date(due_date) = date(?) AND id != ?",
+      [task.title, today, task.id]
+    );
+
+    if (exists) continue;
+
+    // Also skip if the template task itself is for today and still pending
+    if (task.due_date && format(new Date(task.due_date), 'yyyy-MM-dd') === today && task.status === 'pending') continue;
+
+    const hour = baseDate.getHours() || 9;
+    const minute = baseDate.getMinutes() || 0;
+    const todayDate = `${today}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+    createTask({
+      title: task.title,
+      description: task.description ?? undefined,
+      priority: task.priority,
+      urgency: task.urgency,
+      category_id: task.category_id,
+      due_date: todayDate,
+      is_recurring: true,
+      recurrence_type: task.recurrence_type ?? undefined,
+      recurrence_interval: interval,
+      recurrence_end_date: task.recurrence_end_date,
+    });
   }
 }
 

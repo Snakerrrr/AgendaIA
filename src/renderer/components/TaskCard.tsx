@@ -1,10 +1,10 @@
 import React from 'react';
-import { Check, Clock, Edit2, Trash2, AlertCircle } from 'lucide-react';
+import { Check, Clock, Edit2, Trash2, AlertCircle, Repeat } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
-import { playCompleteSound, playDeleteSound } from '../hooks/useSound';
+import { playCompleteSound, playDeleteSound, playClickSound } from '../hooks/useSound';
 import type { Task } from '../../shared/types';
 import { format, isPast, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -118,6 +118,19 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
         </div>
 
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          {!task.is_recurring && (
+            <button
+              onClick={async () => {
+                playClickSound();
+                await api.tasks.update({ id: task.id, is_recurring: true, recurrence_type: 'daily', recurrence_interval: 1 });
+                await loadTasks();
+              }}
+              className="rounded p-1.5 text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400 transition-colors"
+              title="Hacer recurrente (diaria)"
+            >
+              <Repeat size={14} />
+            </button>
+          )}
           <button onClick={() => onEdit(task)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <Edit2 size={14} />
           </button>
