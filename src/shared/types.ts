@@ -24,6 +24,7 @@ export interface Task {
   recurrence_interval: number | null;
   recurrence_end_date: string | null;
   is_focus: number;
+  recurring_parent_id: number | null;
   created_at: string;
   updated_at: string;
   category_name?: string;
@@ -138,6 +139,7 @@ export interface IpcApi {
     getFocusTasks: () => Promise<Task[]>;
     setFocus: (id: number, isFocus: boolean) => Promise<void>;
     generateRecurring: () => Promise<void>;
+    getRecurringTemplates: () => Promise<Task[]>;
   };
   subtasks: {
     getByTask: (taskId: number) => Promise<Subtask[]>;

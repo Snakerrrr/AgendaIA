@@ -13,6 +13,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('tasks:getFocusTasks', () => db.getFocusTasks());
   ipcMain.handle('tasks:setFocus', (_e, id: number, isFocus: boolean) => { db.setFocus(id, isFocus); });
   ipcMain.handle('tasks:generateRecurring', () => { db.generateRecurringTasks(); });
+  ipcMain.handle('tasks:getRecurringTemplates', () => db.getRecurringTemplates());
 
   ipcMain.handle('subtasks:getByTask', (_e, taskId: number) => db.getSubtasksByTask(taskId));
   ipcMain.handle('subtasks:create', (_e, input) => db.createSubtask(input));

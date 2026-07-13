@@ -105,7 +105,9 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
             )}
 
             {task.is_recurring ? (
-              <Badge variant="outline" className="text-[10px] text-purple-400">Recurrente</Badge>
+              <Badge variant="outline" className="text-[10px] text-purple-400">Plantilla</Badge>
+            ) : task.recurring_parent_id ? (
+              <Badge variant="outline" className="text-[10px] text-purple-400/60">Diaria</Badge>
             ) : null}
 
             {task.due_date && (
@@ -118,7 +120,7 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
         </div>
 
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {!task.is_recurring && (
+          {!task.is_recurring && !task.recurring_parent_id && (
             <button
               onClick={async () => {
                 playClickSound();

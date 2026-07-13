@@ -132,6 +132,19 @@ function migrate(): void {
   if (!cols.includes('is_focus')) {
     db.run("ALTER TABLE tasks ADD COLUMN is_focus INTEGER DEFAULT 0");
   }
+  if (!cols.includes('recurring_parent_id')) {
+    db.run("ALTER TABLE tasks ADD COLUMN recurring_parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL");
+    // Fix existing duplicated recurring tasks: find duplicate titles and keep only the first as template
+    const dupes = queryAll(`
+      SELECT title, MIN(id) as template_id, COUNT(*) as cnt
+      FROM tasks WHERE is_recurring = 1
+      GROUP BY title HAVING cnt > 1
+    `);
+    for (const d of dupes) {
+      db.run("UPDATE tasks SET is_recurring = 0, recurring_parent_id = ? WHERE title = ? AND id != ? AND is_recurring = 1",
+        [d.template_id, d.title, d.template_id]);
+    }
+  }
 }
 
 function seedDefaultCategories(): void {
@@ -259,65 +272,63 @@ export function generateRecurringTasks(): void {
   const today = format(new Date(), 'yyyy-MM-dd');
   const now = new Date();
 
-  // Find all recurring template tasks (the original ones, or the latest completed one)
-  const recurring = queryAll(`
-    SELECT * FROM tasks WHERE is_recurring = 1 AND recurrence_type IS NOT NULL
-  `) as unknown as Task[];
+  // Only find TEMPLATE tasks (is_recurring=1 AND NOT a generated instance)
+  const templates = queryAll(`
+    SELECT * FROM tasks
+    WHERE is_recurring = 1 AND recurrence_type IS NOT NULL AND recurring_parent_id IS NULL
+  `) as unknown as (Task & { recurring_parent_id: number | null })[];
 
-  for (const task of recurring) {
-    if (task.recurrence_end_date && new Date(task.recurrence_end_date) < now) continue;
+  for (const tmpl of templates) {
+    if (tmpl.recurrence_end_date && new Date(tmpl.recurrence_end_date) < now) continue;
 
-    const interval = task.recurrence_interval ?? 1;
-    const baseDate = task.due_date ? new Date(task.due_date) : new Date(task.created_at);
+    const interval = tmpl.recurrence_interval ?? 1;
+    const baseDate = tmpl.due_date ? new Date(tmpl.due_date) : new Date(tmpl.created_at);
 
-    // Calculate if today should have this recurring task
-    let shouldCreateToday = false;
+    let shouldCreate = false;
     const daysDiff = Math.floor((now.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    switch (task.recurrence_type) {
+    switch (tmpl.recurrence_type) {
       case 'daily':
-        shouldCreateToday = daysDiff >= 0 && daysDiff % interval === 0;
+        shouldCreate = daysDiff >= 0 && (interval === 1 || daysDiff % interval === 0);
         break;
-      case 'weekly': {
-        const weeksDiff = Math.floor(daysDiff / 7);
-        shouldCreateToday = daysDiff >= 0 && weeksDiff % interval === 0 && now.getDay() === baseDate.getDay();
+      case 'weekly':
+        shouldCreate = daysDiff >= 0 && now.getDay() === baseDate.getDay();
         break;
-      }
       case 'monthly':
-        shouldCreateToday = daysDiff >= 0 && now.getDate() === baseDate.getDate();
+        shouldCreate = daysDiff >= 0 && now.getDate() === baseDate.getDate();
         break;
     }
 
-    if (!shouldCreateToday) continue;
+    if (!shouldCreate) continue;
 
-    // Check if today's instance already exists
+    // Skip if today's instance already exists (by parent id)
     const exists = queryOne(
-      "SELECT id FROM tasks WHERE title = ? AND date(due_date) = date(?) AND id != ?",
-      [task.title, today, task.id]
+      "SELECT id FROM tasks WHERE recurring_parent_id = ? AND date(due_date) = date(?)",
+      [tmpl.id, today]
     );
-
     if (exists) continue;
 
-    // Also skip if the template task itself is for today and still pending
-    if (task.due_date && format(new Date(task.due_date), 'yyyy-MM-dd') === today && task.status === 'pending') continue;
+    // Skip if template itself is for today
+    if (tmpl.due_date && format(new Date(tmpl.due_date), 'yyyy-MM-dd') === today) continue;
 
     const hour = baseDate.getHours() || 9;
     const minute = baseDate.getMinutes() || 0;
     const todayDate = `${today}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
-    createTask({
-      title: task.title,
-      description: task.description ?? undefined,
-      priority: task.priority,
-      urgency: task.urgency,
-      category_id: task.category_id,
-      due_date: todayDate,
-      is_recurring: true,
-      recurrence_type: task.recurrence_type ?? undefined,
-      recurrence_interval: interval,
-      recurrence_end_date: task.recurrence_end_date,
-    });
+    // Create instance (NOT recurring itself, linked to parent)
+    const lastId = runSql(`INSERT INTO tasks (title, description, priority, urgency, status, category_id, due_date, is_recurring, recurring_parent_id)
+      VALUES (?, ?, ?, ?, 'pending', ?, ?, 0, ?)`, [
+      tmpl.title, tmpl.description, tmpl.priority, tmpl.urgency,
+      tmpl.category_id, todayDate, tmpl.id,
+    ]);
   }
+}
+
+export function getRecurringTemplates(): Task[] {
+  return queryAll(`SELECT t.*, c.name as category_name, c.color as category_color
+    FROM tasks t LEFT JOIN categories c ON t.category_id = c.id
+    WHERE t.is_recurring = 1 AND t.recurring_parent_id IS NULL
+    ORDER BY t.title ASC`) as unknown as Task[];
 }
 
 export function getDashboardStats(): DashboardStats {
