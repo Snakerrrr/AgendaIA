@@ -1,13 +1,11 @@
 import { create } from 'zustand';
-import type { Task, Idea, Category, Reminder, DashboardStats, TaskStatus, Priority } from '../../shared/types';
+import type { Task, Idea, Category, Reminder, Habit, DashboardStats, TaskStatus, Priority } from '../../shared/types';
 import { api } from '../lib/api';
 import type { BgEffect } from '../components/AnimatedBackground';
 
-type Page = 'dashboard' | 'tasks' | 'ideas' | 'calendar' | 'focus' | 'pomodoro' | 'stats' | 'eisenhower' | 'kanban' | 'weekly';
+type Page = 'dashboard' | 'tasks' | 'ideas' | 'calendar' | 'focus' | 'pomodoro' | 'stats' | 'eisenhower' | 'kanban' | 'weekly' | 'habits';
 
-function applyAccentHue(hue: string): void {
-  document.documentElement.style.setProperty('--accent-hue', hue);
-}
+function applyAccentHue(hue: string): void { document.documentElement.style.setProperty('--accent-hue', hue); }
 
 interface AppState {
   page: Page;
@@ -16,6 +14,7 @@ interface AppState {
   bgEffect: BgEffect;
   sidebarCollapsed: boolean;
   tasks: Task[];
+  habits: Habit[];
   ideas: Idea[];
   categories: Category[];
   reminders: Reminder[];
@@ -30,6 +29,7 @@ interface AppState {
   initTheme: () => Promise<void>;
 
   loadTasks: (filter?: { status?: TaskStatus; priority?: Priority; category_id?: number }) => Promise<void>;
+  loadHabits: () => Promise<void>;
   loadIdeas: () => Promise<void>;
   loadCategories: () => Promise<void>;
   loadReminders: () => Promise<void>;
@@ -44,6 +44,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   bgEffect: 'particles' as BgEffect,
   sidebarCollapsed: localStorage.getItem('sidebar-collapsed') === 'true',
   tasks: [],
+  habits: [],
   ideas: [],
   categories: [],
   reminders: [],
@@ -59,70 +60,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   },
 
-  setAccentHue: (hue) => {
-    set({ accentHue: hue });
-    applyAccentHue(hue);
-    localStorage.setItem('accent-hue', hue);
-  },
-
-  setBgEffect: (effect) => {
-    set({ bgEffect: effect });
-    localStorage.setItem('bg-effect', effect);
-  },
-
-  toggleSidebar: () => {
-    const next = !get().sidebarCollapsed;
-    set({ sidebarCollapsed: next });
-    localStorage.setItem('sidebar-collapsed', String(next));
-  },
+  setAccentHue: (hue) => { set({ accentHue: hue }); applyAccentHue(hue); localStorage.setItem('accent-hue', hue); },
+  setBgEffect: (effect) => { set({ bgEffect: effect }); localStorage.setItem('bg-effect', effect); },
+  toggleSidebar: () => { const next = !get().sidebarCollapsed; set({ sidebarCollapsed: next }); localStorage.setItem('sidebar-collapsed', String(next)); },
 
   initTheme: async () => {
     const theme = await api.theme.get();
-    set({ theme });
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-
-    const savedHue = localStorage.getItem('accent-hue') ?? '0';
-    set({ accentHue: savedHue });
-    applyAccentHue(savedHue);
-
-    const savedBg = (localStorage.getItem('bg-effect') ?? 'particles') as BgEffect;
-    set({ bgEffect: savedBg });
+    set({ theme }); document.documentElement.classList.toggle('dark', theme === 'dark');
+    const savedHue = localStorage.getItem('accent-hue') ?? '0'; set({ accentHue: savedHue }); applyAccentHue(savedHue);
+    const savedBg = (localStorage.getItem('bg-effect') ?? 'particles') as BgEffect; set({ bgEffect: savedBg });
   },
 
-  loadTasks: async (filter) => {
-    const tasks = await api.tasks.getAll(filter);
-    set({ tasks });
-  },
-
-  loadIdeas: async () => {
-    const ideas = await api.ideas.getAll();
-    set({ ideas });
-  },
-
-  loadCategories: async () => {
-    const categories = await api.categories.getAll();
-    set({ categories });
-  },
-
-  loadReminders: async () => {
-    const reminders = await api.reminders.getAll();
-    set({ reminders });
-  },
-
-  loadDashboardStats: async () => {
-    const dashboardStats = await api.tasks.getDashboardStats();
-    set({ dashboardStats });
-  },
+  loadTasks: async (filter) => { set({ tasks: await api.tasks.getAll(filter) }); },
+  loadHabits: async () => { set({ habits: await api.habits.getAll() }); },
+  loadIdeas: async () => { set({ ideas: await api.ideas.getAll() }); },
+  loadCategories: async () => { set({ categories: await api.categories.getAll() }); },
+  loadReminders: async () => { set({ reminders: await api.reminders.getAll() }); },
+  loadDashboardStats: async () => { set({ dashboardStats: await api.tasks.getDashboardStats() }); },
 
   loadAll: async () => {
     set({ isLoading: true });
-    await Promise.all([
-      get().loadTasks(),
-      get().loadIdeas(),
-      get().loadCategories(),
-      get().loadReminders(),
-      get().loadDashboardStats(),
-    ]);
+    await Promise.all([get().loadTasks(), get().loadHabits(), get().loadIdeas(), get().loadCategories(), get().loadReminders(), get().loadDashboardStats()]);
     set({ isLoading: false });
   },
 }));

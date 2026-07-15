@@ -3,7 +3,7 @@ import {
   LayoutDashboard, CheckSquare, Lightbulb, Calendar,
   Moon, Sun, Target, Timer, BarChart3, Grid3X3, Palette,
   Wallpaper, Columns3, CalendarDays, BellOff, Bell,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Repeat,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
@@ -39,6 +39,7 @@ const navSections: NavSection[] = [
   {
     title: 'Herramientas',
     items: [
+      { id: 'habits', label: 'Hábitos', icon: Repeat },
       { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
       { id: 'ideas', label: 'Ideas', icon: Lightbulb },
       { id: 'stats', label: 'Estadísticas', icon: BarChart3 },

@@ -8,13 +8,19 @@ const api: IpcApi = {
     create: (input) => ipcRenderer.invoke('tasks:create', input),
     update: (input) => ipcRenderer.invoke('tasks:update', input),
     delete: (id) => ipcRenderer.invoke('tasks:delete', id),
+    skip: (id) => ipcRenderer.invoke('tasks:skip', id),
     getByDate: (date) => ipcRenderer.invoke('tasks:getByDate', date),
     getDashboardStats: () => ipcRenderer.invoke('tasks:getDashboardStats'),
     getFocusTasks: () => ipcRenderer.invoke('tasks:getFocusTasks'),
     setFocus: (id, isFocus) => ipcRenderer.invoke('tasks:setFocus', id, isFocus),
-    generateRecurring: () => ipcRenderer.invoke('tasks:generateRecurring'),
-    getRecurringTemplates: () => ipcRenderer.invoke('tasks:getRecurringTemplates'),
-    toggleRecurring: (id, enable) => ipcRenderer.invoke('tasks:toggleRecurring', id, enable),
+  },
+  habits: {
+    getAll: () => ipcRenderer.invoke('habits:getAll'),
+    create: (input) => ipcRenderer.invoke('habits:create', input),
+    update: (id, input) => ipcRenderer.invoke('habits:update', id, input),
+    delete: (id) => ipcRenderer.invoke('habits:delete', id),
+    toggleActive: (id) => ipcRenderer.invoke('habits:toggleActive', id),
+    generateDaily: () => ipcRenderer.invoke('habits:generateDaily'),
   },
   subtasks: {
     getByTask: (taskId) => ipcRenderer.invoke('subtasks:getByTask', taskId),
@@ -63,15 +69,6 @@ const api: IpcApi = {
 };
 
 contextBridge.exposeInMainWorld('api', api);
-
-contextBridge.exposeInMainWorld('onQuickAdd', (callback: () => void) => {
-  ipcRenderer.on('quick-add', () => callback());
-});
-
-contextBridge.exposeInMainWorld('onOpenSearch', (callback: () => void) => {
-  ipcRenderer.on('open-search', () => callback());
-});
-
-contextBridge.exposeInMainWorld('electronOpenMain', () => {
-  ipcRenderer.invoke('app:openMain');
-});
+contextBridge.exposeInMainWorld('onQuickAdd', (callback: () => void) => { ipcRenderer.on('quick-add', () => callback()); });
+contextBridge.exposeInMainWorld('onOpenSearch', (callback: () => void) => { ipcRenderer.on('open-search', () => callback()); });
+contextBridge.exposeInMainWorld('electronOpenMain', () => { ipcRenderer.invoke('app:openMain'); });

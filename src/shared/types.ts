@@ -1,13 +1,31 @@
 export type Priority = 'low' | 'medium' | 'high';
 export type Urgency = 'not_urgent' | 'urgent';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type RecurrenceType = 'daily' | 'weekly' | 'monthly' | 'custom';
+export type RecurrenceType = 'daily' | 'weekly' | 'monthly';
 
 export interface Category {
   id: number;
   name: string;
   color: string;
   icon: string | null;
+}
+
+export interface Habit {
+  id: number;
+  title: string;
+  description: string | null;
+  priority: Priority;
+  urgency: Urgency;
+  category_id: number | null;
+  recurrence_type: RecurrenceType;
+  recurrence_interval: number;
+  scheduled_hour: number;
+  scheduled_minute: number;
+  is_active: number;
+  created_at: string;
+  category_name?: string;
+  category_color?: string;
+  today_status?: TaskStatus | null;
 }
 
 export interface Task {
@@ -19,12 +37,8 @@ export interface Task {
   status: TaskStatus;
   category_id: number | null;
   due_date: string | null;
-  is_recurring: number;
-  recurrence_type: RecurrenceType | null;
-  recurrence_interval: number | null;
-  recurrence_end_date: string | null;
   is_focus: number;
-  recurring_parent_id: number | null;
+  habit_id: number | null;
   created_at: string;
   updated_at: string;
   category_name?: string;
@@ -87,15 +101,24 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   category_id?: number | null;
   due_date?: string | null;
-  is_recurring?: boolean;
-  recurrence_type?: RecurrenceType;
-  recurrence_interval?: number;
-  recurrence_end_date?: string | null;
   is_focus?: boolean;
+  habit_id?: number | null;
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {
   id: number;
+}
+
+export interface CreateHabitInput {
+  title: string;
+  description?: string;
+  priority?: Priority;
+  urgency?: Urgency;
+  category_id?: number | null;
+  recurrence_type?: RecurrenceType;
+  recurrence_interval?: number;
+  scheduled_hour?: number;
+  scheduled_minute?: number;
 }
 
 export interface CreateReminderInput {
@@ -127,6 +150,12 @@ export interface DashboardStats {
   overdue: number;
 }
 
+export interface SearchResults {
+  tasks: Task[];
+  ideas: Idea[];
+  reminders: Reminder[];
+}
+
 export interface IpcApi {
   tasks: {
     getAll: (filter?: { status?: TaskStatus; priority?: Priority; category_id?: number; urgency?: Urgency }) => Promise<Task[]>;
@@ -134,13 +163,19 @@ export interface IpcApi {
     create: (input: CreateTaskInput) => Promise<Task>;
     update: (input: UpdateTaskInput) => Promise<Task>;
     delete: (id: number) => Promise<void>;
+    skip: (id: number) => Promise<void>;
     getByDate: (date: string) => Promise<Task[]>;
     getDashboardStats: () => Promise<DashboardStats>;
     getFocusTasks: () => Promise<Task[]>;
     setFocus: (id: number, isFocus: boolean) => Promise<void>;
-    generateRecurring: () => Promise<void>;
-    getRecurringTemplates: () => Promise<Task[]>;
-    toggleRecurring: (id: number, enable: boolean) => Promise<void>;
+  };
+  habits: {
+    getAll: () => Promise<Habit[]>;
+    create: (input: CreateHabitInput) => Promise<Habit>;
+    update: (id: number, input: Partial<CreateHabitInput>) => Promise<Habit>;
+    delete: (id: number) => Promise<void>;
+    toggleActive: (id: number) => Promise<Habit>;
+    generateDaily: () => Promise<void>;
   };
   subtasks: {
     getByTask: (taskId: number) => Promise<Subtask[]>;
@@ -186,10 +221,4 @@ export interface IpcApi {
   search: {
     global: (query: string) => Promise<SearchResults>;
   };
-}
-
-export interface SearchResults {
-  tasks: Task[];
-  ideas: Idea[];
-  reminders: Reminder[];
 }

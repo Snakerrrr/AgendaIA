@@ -12,6 +12,7 @@ import { StatsPage } from './pages/StatsPage';
 import { EisenhowerPage } from './pages/EisenhowerPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { WeeklyPage } from './pages/WeeklyPage';
+import { HabitsPage } from './pages/HabitsPage';
 import { WidgetPage } from './pages/WidgetPage';
 import { TaskForm } from './components/TaskForm';
 import { useAppStore } from './store/useAppStore';
@@ -26,16 +27,9 @@ declare global {
 }
 
 const pages = {
-  dashboard: Dashboard,
-  tasks: TasksPage,
-  ideas: IdeasPage,
-  calendar: CalendarPage,
-  focus: FocusPage,
-  pomodoro: PomodoroPage,
-  stats: StatsPage,
-  eisenhower: EisenhowerPage,
-  kanban: KanbanPage,
-  weekly: WeeklyPage,
+  dashboard: Dashboard, tasks: TasksPage, ideas: IdeasPage, calendar: CalendarPage,
+  focus: FocusPage, pomodoro: PomodoroPage, stats: StatsPage, eisenhower: EisenhowerPage,
+  kanban: KanbanPage, weekly: WeeklyPage, habits: HabitsPage,
 };
 
 const isWidget = window.location.hash === '#widget';
@@ -52,7 +46,6 @@ export function App() {
     initTheme();
     window.onQuickAdd?.(() => setQuickAdd(true));
     window.onOpenSearch?.(() => setShowSearch(true));
-
     const handleKeys = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }
       if (e.key === 'Escape' && showSearch) setShowSearch(false);
@@ -69,11 +62,8 @@ export function App() {
       <main className="relative flex-1 overflow-hidden">
         <AnimatedBackground effect={bgEffect} accentHue={accentHue} />
         <div className="relative z-10 h-[40px] w-full" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
-        <div className="relative z-10 h-[calc(100vh-40px)]">
-          <Page />
-        </div>
+        <div className="relative z-10 h-[calc(100vh-40px)]"><Page /></div>
       </main>
-
       {quickAdd && <TaskForm onClose={() => setQuickAdd(false)} />}
       {editFromSearch && <TaskForm task={editFromSearch} onClose={() => setEditFromSearch(null)} />}
       {showSearch && <SearchModal onClose={() => setShowSearch(false)} onEditTask={(t) => { setShowSearch(false); setEditFromSearch(t); }} />}

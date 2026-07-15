@@ -8,13 +8,18 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('tasks:create', (_e, input) => db.createTask(input));
   ipcMain.handle('tasks:update', (_e, input) => db.updateTask(input));
   ipcMain.handle('tasks:delete', (_e, id: number) => { db.deleteTask(id); });
+  ipcMain.handle('tasks:skip', (_e, id: number) => { db.skipHabitInstance(id); });
   ipcMain.handle('tasks:getByDate', (_e, date: string) => db.getTasksByDate(date));
   ipcMain.handle('tasks:getDashboardStats', () => db.getDashboardStats());
   ipcMain.handle('tasks:getFocusTasks', () => db.getFocusTasks());
   ipcMain.handle('tasks:setFocus', (_e, id: number, isFocus: boolean) => { db.setFocus(id, isFocus); });
-  ipcMain.handle('tasks:generateRecurring', () => { db.generateRecurringTasks(); });
-  ipcMain.handle('tasks:getRecurringTemplates', () => db.getRecurringTemplates());
-  ipcMain.handle('tasks:toggleRecurring', (_e, id: number, enable: boolean) => { db.toggleRecurring(id, enable); });
+
+  ipcMain.handle('habits:getAll', () => db.getAllHabits());
+  ipcMain.handle('habits:create', (_e, input) => db.createHabit(input));
+  ipcMain.handle('habits:update', (_e, id: number, input) => db.updateHabit(id, input));
+  ipcMain.handle('habits:delete', (_e, id: number) => { db.deleteHabit(id); });
+  ipcMain.handle('habits:toggleActive', (_e, id: number) => db.toggleHabitActive(id));
+  ipcMain.handle('habits:generateDaily', () => { db.generateDailyHabits(); });
 
   ipcMain.handle('subtasks:getByTask', (_e, taskId: number) => db.getSubtasksByTask(taskId));
   ipcMain.handle('subtasks:create', (_e, input) => db.createSubtask(input));

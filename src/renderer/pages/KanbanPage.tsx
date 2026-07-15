@@ -41,6 +41,8 @@ export function KanbanPage() {
     setDragOverCol(null);
   };
 
+  useEffect(() => { loadTasks(); }, []);
+
   const activeTasks = tasks.filter((t) => t.status !== 'cancelled');
 
   return (

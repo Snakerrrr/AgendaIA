@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, dialog, globalShortcut, ipcMain, screen } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { initDatabase, closeDatabase, generateRecurringTasks, getSetting, setSetting } from './database';
+import { initDatabase, closeDatabase, generateDailyHabits, getSetting, setSetting } from './database';
 import { registerIpcHandlers } from './ipc-handlers';
 import { startReminderService, stopReminderService, setDoNotDisturb } from './notifications';
 
@@ -120,7 +120,8 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
   startReminderService();
-  generateRecurringTasks();
+  generateDailyHabits();
+  startDayChangeDetector();
   registerGlobalShortcut();
   setupAutoStart();
 });
@@ -152,5 +153,16 @@ ipcMain.handle('app:setAutoStart', (_e, enabled: boolean) => {
 ipcMain.handle('app:getDnd', () => getSetting('dnd') === 'true');
 ipcMain.handle('app:setDnd', (_e, enabled: boolean) => { setSetting('dnd', enabled ? 'true' : 'false'); setDoNotDisturb(enabled); });
 ipcMain.handle('app:openMain', () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } else { createWindow(); } widgetWindow?.hide(); });
+
+let lastCheckedDate = new Date().toISOString().split('T')[0];
+function startDayChangeDetector(): void {
+  setInterval(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== lastCheckedDate) {
+      lastCheckedDate = today;
+      generateDailyHabits();
+    }
+  }, 60_000);
+}
 
 process.on('uncaughtException', (err) => { dialog.showErrorBox('Error inesperado', err.message); });

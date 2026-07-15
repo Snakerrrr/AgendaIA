@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Clock, Edit2, Trash2, AlertCircle, Repeat } from 'lucide-react';
+import { Check, Clock, Edit2, Trash2, AlertCircle, Repeat, SkipForward } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 import { api } from '../lib/api';
@@ -28,88 +28,74 @@ const statusConfig = {
 };
 
 export function TaskCard({ task, onEdit }: TaskCardProps) {
-  const { loadTasks, loadDashboardStats } = useAppStore();
+  const { loadTasks, loadDashboardStats, loadHabits } = useAppStore();
   const priority = priorityConfig[task.priority];
   const status = statusConfig[task.status];
   const isOverdue = task.due_date && isPast(parseISO(task.due_date)) && task.status !== 'completed' && task.status !== 'cancelled';
   const isCompleted = task.status === 'completed';
+  const isHabitTask = !!task.habit_id;
+
+  const refresh = () => Promise.all([loadTasks(), loadDashboardStats(), ...(isHabitTask ? [loadHabits()] : [])]);
 
   const handleToggleComplete = async () => {
     if (!isCompleted) playCompleteSound();
     await api.tasks.update({ id: task.id, status: isCompleted ? 'pending' : 'completed' });
-    await Promise.all([loadTasks(), loadDashboardStats()]);
+    await refresh();
   };
 
   const handleDelete = async () => {
     playDeleteSound();
-    await api.tasks.delete(task.id);
-    await Promise.all([loadTasks(), loadDashboardStats()]);
+    if (isHabitTask) {
+      await api.tasks.skip(task.id);
+    } else {
+      await api.tasks.delete(task.id);
+    }
+    await refresh();
   };
 
   const handleCycleStatus = async () => {
     const order = ['pending', 'in_progress', 'completed'] as const;
     const idx = order.indexOf(task.status as typeof order[number]);
-    await api.tasks.update({ id: task.id, status: order[(idx + 1) % order.length] });
-    await Promise.all([loadTasks(), loadDashboardStats()]);
+    const next = order[(idx + 1) % order.length];
+    if (next === 'completed') playCompleteSound();
+    await api.tasks.update({ id: task.id, status: next });
+    await refresh();
   };
 
   return (
-    <div
-      className={cn(
-        'group rounded border border-border bg-card p-3 transition-all duration-200 border-l-4 animate-slide-in',
-        'hover:glow-border-hover glow-border',
-        priority.color,
-        isCompleted && 'opacity-50'
-      )}
-    >
+    <div className={cn(
+      'group rounded border border-border bg-card p-3 transition-all duration-200 border-l-4 animate-slide-in',
+      'hover:glow-border-hover glow-border', priority.color,
+      isCompleted && 'opacity-50'
+    )}>
       <div className="flex items-start gap-3">
-        <button
-          onClick={handleToggleComplete}
-          className={cn(
-            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all duration-200',
-            isCompleted
-              ? 'border-green-500 bg-green-500 text-white shadow-[0_0_8px_rgba(34,197,94,0.4)]'
+        <button onClick={handleToggleComplete}
+          className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all duration-200',
+            isCompleted ? 'border-green-500 bg-green-500 text-white shadow-[0_0_8px_rgba(34,197,94,0.4)]'
               : 'border-muted-foreground/40 hover:border-primary hover:shadow-[0_0_8px_hsl(var(--glow-color)/0.3)]'
-          )}
-        >
+          )}>
           {isCompleted && <Check size={12} />}
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className={cn('font-medium text-sm', isCompleted && 'line-through text-muted-foreground')}>
-              {task.title}
-            </h3>
+            <h3 className={cn('font-medium text-sm', isCompleted && 'line-through text-muted-foreground')}>{task.title}</h3>
             {isOverdue && <AlertCircle size={14} className="shrink-0 text-red-400 animate-glow-pulse" />}
-            {task.urgency === 'urgent' && (
-              <Badge variant="danger" className="text-[10px] px-1.5 py-0">URGENTE</Badge>
-            )}
+            {task.urgency === 'urgent' && <Badge variant="danger" className="text-[10px] px-1.5 py-0">URGENTE</Badge>}
           </div>
-
-          {task.description && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{task.description}</p>
-          )}
-
+          {task.description && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{task.description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <Badge variant={priority.variant} className="text-[10px]">{priority.label}</Badge>
-
             <button onClick={handleCycleStatus} className="cursor-pointer">
               <Badge variant="outline" className={cn(status.class, 'text-[10px]')}>{status.label}</Badge>
             </button>
-
             {task.category_name && (
               <Badge variant="secondary" className="gap-1 text-[10px]">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: task.category_color ?? '#3b82f6' }} />
                 {task.category_name}
               </Badge>
             )}
-
-            {task.is_recurring ? (
-              <Badge variant="outline" className="text-[10px] text-purple-400">Recurrente</Badge>
-            ) : task.recurring_parent_id ? (
-              <Badge variant="outline" className="text-[10px] text-purple-400/60">Auto-generada</Badge>
-            ) : null}
-
+            {isHabitTask && <Badge variant="outline" className="text-[10px] text-purple-400 gap-1"><Repeat size={8} />Hábito</Badge>}
             {task.due_date && (
               <span className={cn('flex items-center gap-1 text-[10px]', isOverdue ? 'text-red-400' : 'text-muted-foreground')}>
                 <Clock size={10} />
@@ -120,43 +106,17 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
         </div>
 
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {!task.recurring_parent_id && (
-            <button
-              onClick={async () => {
-                playClickSound();
-                const willEnable = !task.is_recurring;
-                await api.tasks.toggleRecurring(task.id, willEnable);
-                await loadTasks();
-              }}
-              className={cn(
-                'rounded p-1.5 transition-colors',
-                task.is_recurring
-                  ? 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20'
-                  : 'text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400'
-              )}
-              title={task.is_recurring ? 'Quitar recurrencia' : 'Hacer recurrente (diaria)'}
-            >
-              <Repeat size={14} />
+          {!isHabitTask && (
+            <button onClick={() => onEdit(task)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <Edit2 size={14} />
             </button>
           )}
-          {task.recurring_parent_id && (
-            <button
-              onClick={async () => {
-                playClickSound();
-                await api.tasks.toggleRecurring(task.recurring_parent_id!, false);
-                await loadTasks();
-              }}
-              className="rounded p-1.5 text-purple-400/60 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-              title="Dejar de repetir esta tarea"
-            >
-              <Repeat size={14} />
-            </button>
-          )}
-          <button onClick={() => onEdit(task)} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-            <Edit2 size={14} />
-          </button>
-          <button onClick={handleDelete} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/20 hover:text-red-400 transition-colors">
-            <Trash2 size={14} />
+          <button onClick={handleDelete}
+            className={cn('rounded p-1.5 transition-colors',
+              isHabitTask ? 'text-muted-foreground hover:bg-yellow-500/10 hover:text-yellow-400' : 'text-muted-foreground hover:bg-destructive/20 hover:text-red-400'
+            )}
+            title={isHabitTask ? 'Saltar hoy (vuelve mañana)' : 'Eliminar'}>
+            {isHabitTask ? <SkipForward size={14} /> : <Trash2 size={14} />}
           </button>
         </div>
       </div>
