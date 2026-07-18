@@ -31,9 +31,10 @@ export async function initDatabase(): Promise<void> {
   const SQL = await initSqlJs({ locateFile: () => wasmPath });
   dbPath = path.join(app.getPath('userData'), 'agendaia.db');
   db = fs.existsSync(dbPath) ? new SQL.Database(fs.readFileSync(dbPath)) : new SQL.Database();
-  db.run('PRAGMA foreign_keys = ON');
+  db.run('PRAGMA foreign_keys = OFF');
   migrate();
   seedDefaultCategories();
+  db.run('PRAGMA foreign_keys = ON');
   saveNow();
 }
 
@@ -98,25 +99,34 @@ function migrate(): void {
     db.run("ALTER TABLE tasks ADD COLUMN urgency TEXT DEFAULT 'not_urgent'");
   }
 
-  // Migrate old recurring tasks to habits table
+  // Migrate old recurring tasks to habits table (safe migration)
   if (taskCols.includes('is_recurring')) {
-    const oldRecurring = queryAll("SELECT * FROM tasks WHERE is_recurring = 1 AND recurring_parent_id IS NULL");
-    for (const old of oldRecurring) {
-      const existsInHabits = queryOne("SELECT id FROM habits WHERE title = ?", [old.title]);
-      if (!existsInHabits) {
-        const dueDate = old.due_date ? new Date(old.due_date as string) : null;
-        runSql(`INSERT INTO habits (title, description, priority, urgency, category_id, recurrence_type, recurrence_interval, scheduled_hour, scheduled_minute)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-          old.title, old.description, old.priority ?? 'medium', old.urgency ?? 'not_urgent',
-          old.category_id, old.recurrence_type ?? 'daily', old.recurrence_interval ?? 1,
-          dueDate?.getHours() ?? 9, dueDate?.getMinutes() ?? 0,
-        ]);
+    try {
+      // Clean up broken FK references first
+      if (taskCols.includes('recurring_parent_id')) {
+        db.run("UPDATE tasks SET recurring_parent_id = NULL WHERE recurring_parent_id IS NOT NULL AND recurring_parent_id NOT IN (SELECT id FROM tasks)");
       }
-    }
-    // Link existing instances to their new habit
-    const habits = queryAll("SELECT * FROM habits");
-    for (const h of habits) {
-      db.run("UPDATE tasks SET habit_id = ? WHERE title = ? AND recurring_parent_id IS NOT NULL", [h.id, h.title]);
+
+      const oldRecurring = queryAll("SELECT * FROM tasks WHERE is_recurring = 1 AND (recurring_parent_id IS NULL OR recurring_parent_id = 0)");
+      for (const old of oldRecurring) {
+        const existsInHabits = queryOne("SELECT id FROM habits WHERE title = ?", [old.title]);
+        if (!existsInHabits) {
+          const dueDate = old.due_date ? new Date(old.due_date as string) : null;
+          runSql(`INSERT INTO habits (title, description, priority, urgency, category_id, recurrence_type, recurrence_interval, scheduled_hour, scheduled_minute)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+            old.title, old.description ?? null, old.priority ?? 'medium', old.urgency ?? 'not_urgent',
+            old.category_id ?? null, old.recurrence_type ?? 'daily', old.recurrence_interval ?? 1,
+            dueDate ? dueDate.getHours() : 9, dueDate ? dueDate.getMinutes() : 0,
+          ]);
+        }
+      }
+      // Link existing instances to their new habit
+      const allHabits = queryAll("SELECT * FROM habits");
+      for (const h of allHabits) {
+        db.run("UPDATE tasks SET habit_id = ? WHERE title = ? AND recurring_parent_id IS NOT NULL AND habit_id IS NULL", [h.id, h.title]);
+      }
+    } catch {
+      // Migration is best-effort; don't block startup
     }
   }
 }
