@@ -15,10 +15,15 @@ let widgetWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 function createWindow(): void {
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width: 1200, height: 800, minWidth: 900, minHeight: 600,
     frame: false, titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#080808', symbolColor: '#8b8b8b', height: 40 },
+    ...(isMac ? {
+      trafficLightPosition: { x: 12, y: 12 },
+    } : {
+      titleBarOverlay: { color: '#080808', symbolColor: '#8b8b8b', height: 40 },
+    }),
     backgroundColor: '#080808', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });

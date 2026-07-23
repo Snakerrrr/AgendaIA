@@ -1,6 +1,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -12,21 +13,17 @@ function copyDirSync(src: string, dest: string): void {
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirSync(srcPath, destPath);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-    }
+    if (entry.isDirectory()) copyDirSync(srcPath, destPath);
+    else fs.copyFileSync(srcPath, destPath);
   }
 }
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: {
-      unpack: '**/*.{node,dll,wasm}',
-    },
+    asar: { unpack: '**/*.{node,dll,wasm,dylib}' },
     name: 'AgendaIA',
     executableName: 'AgendaIA',
+    appBundleId: 'com.agendaia.app',
     extraResource: [
       path.resolve(__dirname, 'node_modules/sql.js/dist/sql-wasm.wasm'),
     ],
@@ -37,40 +34,23 @@ const config: ForgeConfig = {
           const destSqlJs = path.join(buildPath, 'node_modules', 'sql.js');
           copyDirSync(srcSqlJs, destSqlJs);
           callback();
-        } catch (err) {
-          callback(err as Error);
-        }
+        } catch (err) { callback(err as Error); }
       },
     ],
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({
-      name: 'AgendaIA',
-      setupIcon: undefined,
-    }),
+    new MakerSquirrel({ name: 'AgendaIA' }),
+    new MakerDMG({ name: 'AgendaIA', format: 'ULFO' }),
     new MakerZIP({}, ['darwin', 'win32']),
   ],
   plugins: [
     new VitePlugin({
       build: [
-        {
-          entry: 'src/main/main.ts',
-          config: 'vite.main.config.ts',
-          target: 'main',
-        },
-        {
-          entry: 'src/preload/preload.ts',
-          config: 'vite.preload.config.ts',
-          target: 'preload',
-        },
+        { entry: 'src/main/main.ts', config: 'vite.main.config.ts', target: 'main' },
+        { entry: 'src/preload/preload.ts', config: 'vite.preload.config.ts', target: 'preload' },
       ],
-      renderer: [
-        {
-          name: 'main_window',
-          config: 'vite.renderer.config.ts',
-        },
-      ],
+      renderer: [{ name: 'main_window', config: 'vite.renderer.config.ts' }],
     }),
     new FusesPlugin({
       version: FuseVersion.V1,
