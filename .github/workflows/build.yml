@@ -2,8 +2,8 @@ name: Build & Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
       - run: npm run make
 
       - uses: actions/upload-artifact@v4
@@ -39,7 +38,6 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
 
@@ -48,7 +46,8 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create Release
+      - name: Release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -56,3 +55,17 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.zip
           generate_release_notes: true
+
+      - name: Release (latest)
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Ultima version"
+          body: "Descarga automatica de la ultima version. Se actualiza con cada cambio en el codigo."
+          prerelease: true
+          make_latest: false
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
